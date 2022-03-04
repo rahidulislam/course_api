@@ -5,6 +5,7 @@ from rest_framework import viewsets
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework import status
+import datetime
 # Create your views here.
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -48,3 +49,43 @@ class CourseViewSet(viewsets.ModelViewSet):
             return Response({'message': 'Course is Deleted'}, status.HTTP_204_NO_CONTENT)
         return Response({'message': 'Course is not Deleted'}, status.HTTP_400_BAD_REQUEST)
     
+
+class EnrollmentViewset(viewsets.ModelViewSet):
+    queryset = Enrollment.objects.all()
+    serializer_class = EnrollmentSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+    def list(self, request, format=None):
+        serializer = self.serializer_class(self.queryset, many=True)
+        return Response(serializer.data)
+
+    def create(self, request):
+        data = request.data
+        data['student'] = request.user.pk
+        serializer = self.serializer_class(data=data)
+        if serializer.is_valid():
+            course = serializer.validated_data['course']
+            student = serializer.validated_data['student']
+            print(course.count)
+            print(student)
+            date = datetime.date.today()
+            print(course.end_date)
+            print(date)
+            if date < course.end_date:
+                print("date is smaller")
+                if course.count>=course.max_student:
+                    print("Student is full")
+                    return Response({'message': 'Student is full'}, status.HTTP_400_BAD_REQUEST)
+                else:
+                    print("Vacancy")
+                    serializer.save()
+                    course.count += 1
+                    course.save()
+                    return Response(serializer.data, status.HTTP_201_CREATED)
+                    
+            else:
+                print("date is bigger")
+                return Response({'message': 'Course is expired'}, status.HTTP_400_BAD_REQUEST)
+            #print(serializer.data)
+            
+        return Response({'message': 'Enrollment was not created'}, status.HTTP_400_BAD_REQUEST)
